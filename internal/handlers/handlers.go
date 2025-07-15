@@ -24,13 +24,22 @@ func UploadHandler(logger *log.Logger) http.HandlerFunc {
 			return
 		}
 
-		file, header, err := r.FormFile("file")
+		err := r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			logger.Printf("ParseMultipartForm error: %v", err)
+			http.Error(w, "File too large", http.StatusBadRequest)
+			return
+		}
+
+		file, header, err := r.FormFile("myFile")
 		if err != nil {
 			logger.Printf("Error retrieving file: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 		defer file.Close()
+
+		logger.Printf("Received file: %s (Size: %d bytes)", header.Filename, header.Size) // Добавлено логирование
 
 		if header.Size == 0 {
 			logger.Println("Empty file uploaded")
@@ -53,9 +62,9 @@ func UploadHandler(logger *log.Logger) http.HandlerFunc {
 		}
 
 		ext := filepath.Ext(header.Filename)
-		timestamp := time.Now().UTC().String()
+		timestamp := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 		filename := fmt.Sprintf("%s%s",
-			strings.ReplaceAll(timestamp, " ", "_"),
+			strings.ReplaceAll(timestamp, ":", "-"),
 			ext)
 
 		if err := os.WriteFile(filename, []byte(result), 0644); err != nil {
